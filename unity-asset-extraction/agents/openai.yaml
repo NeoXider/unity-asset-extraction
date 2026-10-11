@@ -1,0 +1,6 @@
+interface:
+  display_name: "Извлечение Unity assets"
+  short_description: "Локальный экспорт Unity assets с SHA и отчётом"
+  default_prompt: "Используй $unity-asset-extraction для локальной инвентаризации и экспорта этих Unity assets с проверкой полноты."
+policy:
+  allow_implicit_invocation: true
