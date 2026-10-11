@@ -4,7 +4,7 @@
 
 ## Команды
 
-Пути ниже относительны к папке skill; inputs можно повторять. Output должен отсутствовать.
+Пути ниже относительны к папке skill; inputs можно повторять. Output должен отсутствовать; по умолчанию размещай его вне `Assets` и любых каталогов автоматического импорта.
 
 ```powershell
 python -B scripts/extract_unity_assets.py --help
@@ -22,7 +22,22 @@ python -B scripts/extract_unity_assets.py --input D:/Data/shaders.bundle --outpu
 
 Запуск без shell: `--headless --port N --log-path LOG`, hidden на Windows. Только own loopback HTTP; до пяти redirect допускаются строго на тот же `127.0.0.1:port`, внешние отвергаются до запроса. Реальный settings API возвращает 302 (готовый helper также следовал redirect). GET `/` ожидает 200; до LoadFile отдельные POST form `/Settings/Update` устанавливают ShaderExportMode=Yaml, ScriptExportMode=DllExportWithoutRenaming, ScriptContentLevel=Level0, ExportUnreadableAssets=true. Далее POST `/LoadFile` и `/Export/UnityProject`, поле `path`. Directory/group/catalog endpoints не предполагаются. Каждому source соответствует отдельный процесс и namespace SHA. Source dependencies между разными bundles автоматически не объединяются; неподтверждённое покрытие фиксируется.
 
-Texture/material/shader и связанные outputs, созданные backend для одного входа, сохраняются вместе. Авторский HLSL не восстанавливается: native Shader YAML/GPU остаётся фактическим форматом. Последующий Unity import требует отдельной проверки; SaveAssets может повредить native YAML shaders.
+Texture/material/shader и связанные outputs, созданные backend для одного входа, сохраняются вместе. Авторский HLSL не восстанавливается: native Shader YAML/GPU остаётся фактическим форматом.
+
+## Совместимость после экспорта
+
+Проверка `complete`/`partial` описывает полноту экспорта, а не совместимость с Unity. Слепой импорт всего экспортированного набора запрещён; skill сам не запускает Unity и не импортирует assets.
+
+Наблюдался конкретный случай: native Shader YAML Unity 2018.4, экспортированный AssetRipper 2.0.0.0, при импорте в Unity 6000.6 вызвал schema assertions, рост лога и зависание/остановку Editor. Схемы сериализации разных версий могут различаться. Это не доказывает несовместимость всех Shader YAML и не отменяет проверенные результаты других форматов и режимов. Загрузка исходного AssetBundle — отдельный путь; её успех не подтверждает совместимость самостоятельных экспортированных ассетов.
+
+Перед использованием native Shader YAML владелец выполняет отдельную проверку:
+
+1. Сохрани оригиналы и экспорт неизменными вне каталогов автоматического импорта. Выбери один кандидат и только необходимые ему зависимости; используй копию для проверки.
+2. Подготовь отдельный контролируемый проект в целевой версии Unity. Сначала заверши работу и закрой Editor рабочего проекта: не создавай параллельный Editor для уже открытого рабочего проекта.
+3. До запуска задай предел размера лога и времени проверки, наблюдай за логом. При первой schema ошибке или достижении любого предела останови проверку и её Editor, сохрани ограниченный лог и исходные данные. Не вызывай `SaveAssets` для native YAML.
+4. Зафиксируй версии источника, AssetRipper и целевого Unity, SHA кандидата и результат. Успех одного кандидата относится только к проверенному случаю; остальные assets требуют своей проверки перед использованием.
+
+Save guard может предотвращать сохранение, но не делает несовместимые данные пригодными. Editable HLSL этот путь не восстанавливает.
 
 ## Форматы и границы
 
@@ -72,7 +87,7 @@ AssetRipper export намеренно partial пока нет доказанно
 
 ```powershell
 python -B -m unittest discover -s Tools/AssetExtraction/tests -p test_extract_unity_assets.py
-python C:/Users/User/.codex/skills/.system/skill-creator/scripts/quick_validate.py Tools/AssetExtraction/unity-asset-extraction
+python -B -X utf8 '<skills-root>/.system/skill-creator/scripts/quick_validate.py' Tools/AssetExtraction/unity-asset-extraction
 ```
 
-Тесты создают только приватные fixtures под `D:/Temp/asset-extraction-tests` на Windows; parser/API fault doubles проверяют реальные subprocess/report/cleanup эффекты. Unit tests не заменяют actual AssetRipper export smoke на разрешённых bundles. Глобальная установка, скачивание, публикация proprietary данных и Unity import в эти команды не входят.
+`<skills-root>` замени на локальный каталог skills. Тесты создают только приватные fixtures под `D:/Temp/asset-extraction-tests` на Windows; parser/API fault doubles проверяют реальные subprocess/report/cleanup эффекты. Unit tests не заменяют actual AssetRipper export smoke на разрешённых bundles и отдельную проверку совместимости с Unity. Глобальная установка, скачивание, публикация proprietary данных и Unity import в эти команды не входят.
